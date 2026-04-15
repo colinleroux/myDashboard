@@ -17,6 +17,7 @@ ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends rsync docker.io \
+    && if [ -x /usr/bin/docker.io ] && [ ! -e /usr/bin/docker ]; then ln -s /usr/bin/docker.io /usr/bin/docker; fi \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
