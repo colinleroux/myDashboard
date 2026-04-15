@@ -1,0 +1,401 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-start: #f4efe1;
+    --bg-end: #d9e5f7;
+    --ink: #1d2d35;
+    --surface: rgba(255, 255, 255, 0.86);
+    --surface-strong: #ffffff;
+    --line: #c7d2db;
+    --brand: #0a7e67;
+    --brand-dark: #076552;
+    --warning: #b85d00;
+    --danger: #af2637;
+  }
+
+  body {
+    @apply antialiased;
+    color: var(--ink);
+    background: radial-gradient(circle at 10% 10%, #fff7e6 0%, transparent 35%),
+      linear-gradient(140deg, var(--bg-start), var(--bg-end));
+    min-height: 100vh;
+  }
+
+  h1, h2, h3 {
+    @apply font-semibold tracking-tight;
+  }
+
+  input, select, textarea {
+    @apply rounded-lg border px-3 py-2;
+    border-color: var(--line);
+    background: #fff;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    @apply outline-none ring-2 ring-offset-1;
+    --tw-ring-color: rgba(10, 126, 103, 0.25);
+  }
+}
+
+@layer components {
+  .dashboard-body {
+    @apply m-0;
+  }
+
+  .container {
+    @apply mx-auto w-full max-w-7xl px-4;
+  }
+
+  .main-nav {
+    @apply border-b backdrop-blur-sm;
+    border-color: var(--line);
+    background: rgba(255, 255, 255, 0.75);
+  }
+
+  .nav-inner {
+    @apply flex items-center justify-between gap-4 py-4;
+  }
+
+  .brand {
+    @apply text-xl font-bold;
+  }
+
+  .nav-links {
+    @apply flex flex-wrap items-center gap-3 text-sm;
+  }
+
+  .nav-links a {
+    @apply rounded-lg px-3 py-1 no-underline transition;
+    color: #344954;
+  }
+
+  .nav-links a:hover {
+    background: #e5edf3;
+  }
+
+  .main-content {
+    @apply space-y-5 py-6;
+  }
+
+  .flash-stack {
+    @apply space-y-2;
+  }
+
+  .flash {
+    @apply rounded-lg border px-3 py-2 text-sm;
+  }
+
+  .flash-success {
+    @apply border-emerald-300 bg-emerald-50 text-emerald-900;
+  }
+
+  .flash-error {
+    @apply border-rose-300 bg-rose-50 text-rose-900;
+  }
+
+  .flash-warning {
+    @apply border-amber-300 bg-amber-50 text-amber-900;
+  }
+
+  .flash-info {
+    @apply border-sky-300 bg-sky-50 text-sky-900;
+  }
+
+  .hero, .panel, .empty-state {
+    @apply rounded-2xl border p-6 shadow-sm;
+    border-color: var(--line);
+    background: var(--surface);
+  }
+
+  .hero {
+    @apply flex flex-wrap items-center justify-between gap-4;
+  }
+
+  .hero h1 {
+    @apply mb-1 text-3xl;
+  }
+
+  .hero p {
+    @apply m-0 max-w-2xl text-sm;
+    color: #3e5561;
+  }
+
+  .tile-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .site-tile {
+    @apply flex h-full flex-col overflow-hidden rounded-2xl border shadow-sm transition;
+    border-color: var(--line);
+    background: var(--surface-strong);
+  }
+
+  .site-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(22, 39, 53, 0.08);
+  }
+
+  .tile-click {
+    @apply flex h-full flex-col no-underline;
+    color: inherit;
+  }
+
+  .tile-image {
+    @apply h-36 w-full object-cover;
+  }
+
+  .tile-placeholder {
+    @apply flex h-36 items-center justify-center text-5xl font-bold;
+    background: linear-gradient(135deg, #ddf3ec, #e6edf7);
+    color: #3e5561;
+  }
+
+  .tile-text {
+    @apply flex flex-1 flex-col gap-2 p-4;
+  }
+
+  .tile-text h2 {
+    @apply m-0 text-lg;
+  }
+
+  .tile-text p {
+    @apply m-0 text-sm;
+    color: #425a67;
+  }
+
+  .tile-url {
+    @apply mt-auto text-xs font-medium;
+    color: #1f6f95;
+  }
+
+  .tile-actions {
+    @apply flex items-center gap-2 border-t p-4;
+    border-color: #e2e9ee;
+  }
+
+  .btn {
+    @apply rounded-lg border px-3 py-2 text-sm font-medium transition;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    color: #fff;
+    border-color: transparent;
+    background: var(--brand);
+  }
+
+  .btn-primary:hover {
+    background: var(--brand-dark);
+  }
+
+  .btn-secondary {
+    color: #fff;
+    border-color: transparent;
+    background: #30749f;
+  }
+
+  .btn-secondary:hover {
+    background: #255d80;
+  }
+
+  .btn-ghost {
+    color: #2d4450;
+    border-color: var(--line);
+    background: #f7fafc;
+  }
+
+  .btn-ghost:hover {
+    background: #eaf1f6;
+  }
+
+  .btn-warning {
+    color: #fff;
+    border-color: transparent;
+    background: var(--warning);
+  }
+
+  .btn-warning:hover {
+    background: #9a4b00;
+  }
+
+  .btn-danger {
+    color: #fff;
+    border-color: transparent;
+    background: var(--danger);
+  }
+
+  .btn-danger:hover {
+    background: #911e2f;
+  }
+
+  .btn-icon {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-full border p-0 text-base;
+    color: #2d4450;
+    border-color: var(--line);
+    background: #f7fafc;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .btn-icon:hover {
+    background: #eaf1f6;
+  }
+
+  .settings-form, .site-edit-form {
+    @apply grid gap-3;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .settings-form textarea,
+  .site-edit-form textarea {
+    @apply col-span-1;
+    resize: vertical;
+  }
+
+  .checkbox-row {
+    @apply inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm;
+    border-color: var(--line);
+    background: #fff;
+  }
+
+  .checkbox-row input[type="checkbox"] {
+    @apply h-4 w-4;
+  }
+
+  .asset-paths-group {
+    @apply col-span-1 space-y-2 rounded-xl border p-3;
+    border-color: #dbe4ea;
+    background: rgba(255, 255, 255, 0.7);
+  }
+
+  .asset-paths-group p {
+    @apply m-0 text-sm font-medium;
+    color: #3e5561;
+  }
+
+  .asset-paths-list {
+    @apply space-y-2;
+  }
+
+  .asset-path-row {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .asset-path-row input {
+    @apply min-w-0 flex-1;
+  }
+
+  .site-list {
+    @apply space-y-3;
+  }
+
+  .site-row {
+    @apply rounded-xl border p-3;
+    border-color: #dbe4ea;
+    background: rgba(255, 255, 255, 0.8);
+  }
+
+  .site-row-footer {
+    @apply mt-3 flex items-center gap-2;
+  }
+
+  .empty-state h2 {
+    @apply mb-1 text-xl;
+  }
+
+  .empty-state p {
+    @apply mb-4 mt-0 text-sm;
+  }
+
+  .site-modal {
+    @apply rounded-2xl border p-0 shadow-xl;
+    border-color: var(--line);
+    width: min(680px, 92vw);
+    max-height: 85vh;
+  }
+
+  .site-modal::backdrop {
+    background: rgba(8, 19, 26, 0.48);
+  }
+
+  .site-modal-card {
+    @apply flex flex-col;
+    background: #fff;
+  }
+
+  .site-modal-header,
+  .site-modal-content,
+  .site-modal-actions {
+    @apply px-5;
+  }
+
+  .site-modal-header {
+    @apply border-b py-4;
+    border-color: #e4ebf0;
+  }
+
+  .site-modal-header h3 {
+    @apply m-0 text-xl;
+  }
+
+  .site-modal-content {
+    @apply space-y-2 py-4 text-sm;
+  }
+
+  .site-modal-content p {
+    @apply m-0;
+    overflow-wrap: anywhere;
+  }
+
+  .site-modal-content ul {
+    @apply m-0 pl-5 text-sm;
+  }
+
+  .site-modal-actions {
+    @apply flex items-center justify-end gap-2 border-t py-4;
+    border-color: #e4ebf0;
+  }
+}
+
+@media (min-width: 700px) {
+  .settings-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .asset-paths-group,
+  .settings-form textarea,
+  .settings-form button {
+    @apply col-span-2;
+  }
+}
+
+@media (min-width: 900px) {
+  .tile-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .site-edit-form {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .site-edit-form textarea {
+    @apply col-span-2;
+  }
+
+  .site-edit-form .checkbox-row {
+    @apply col-span-2;
+  }
+
+  .site-edit-form .asset-paths-group {
+    @apply col-span-4;
+  }
+
+  .site-row-footer {
+    @apply col-span-4;
+  }
+}

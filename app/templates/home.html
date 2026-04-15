@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+{% block title %}Landing{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h1>Internal Site Launcher</h1>
+    <p>Open any internal Docker-hosted app quickly and trigger backups when needed.</p>
+  </div>
+  <form method="post" action="{{ url_for('main.backup_all') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-warning">Backup all</button>
+  </form>
+</section>
+
+{% if sites %}
+<section class="tile-grid">
+  {% for site in sites %}
+  <article class="site-tile">
+    <a class="tile-click" href="{{ site.destination_url() }}" target="_blank" rel="noreferrer noopener">
+      {% if site.image_url %}
+      <img src="{{ site.image_url }}" alt="{{ site.name }} logo" class="tile-image">
+      {% else %}
+      <div class="tile-placeholder">{{ site.name[:1] }}</div>
+      {% endif %}
+      <div class="tile-text">
+        <h2>{{ site.name }}</h2>
+        <p>{{ site.description or "No description provided yet." }}</p>
+        <p class="tile-url">{{ site.destination_url() }}</p>
+      </div>
+    </a>
+    <div class="tile-actions">
+      <button type="button" class="btn btn-icon js-open-site-modal" data-modal-id="site-info-{{ site.id }}" aria-label="Open info for {{ site.name }}">
+        i
+      </button>
+      {% if site.github_url %}
+      <a class="btn btn-ghost" href="{{ site.github_url }}" target="_blank" rel="noreferrer noopener">Repo</a>
+      {% endif %}
+      <form method="post" action="{{ url_for('main.backup_site', site_id=site.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-secondary">Backup</button>
+      </form>
+    </div>
+  </article>
+
+  <dialog id="site-info-{{ site.id }}" class="site-modal">
+    <article class="site-modal-card">
+      <header class="site-modal-header">
+        <h3>{{ site.name }}</h3>
+      </header>
+      <div class="site-modal-content">
+        <p><strong>Address:</strong> {{ site.destination_url() }}</p>
+        <p><strong>Description:</strong> {{ site.description or "N/A" }}</p>
+        <p><strong>Notes:</strong> {{ site.notes or "N/A" }}</p>
+        <p><strong>DB path:</strong> {{ site.db_path or "N/A" }}</p>
+        <p><strong>DB only backup:</strong> {% if site.db_only %}Yes{% else %}No{% endif %}</p>
+        <p><strong>GitHub:</strong>
+          {% if site.github_url %}
+          <a href="{{ site.github_url }}" target="_blank" rel="noreferrer noopener">{{ site.github_url }}</a>
+          {% else %}
+          N/A
+          {% endif %}
+        </p>
+        <p><strong>Asset paths:</strong></p>
+        {% set paths = site.get_asset_paths() %}
+        {% if paths %}
+        <ul>
+          {% for path in paths %}
+          <li>{{ path }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>N/A</p>
+        {% endif %}
+      </div>
+      <footer class="site-modal-actions">
+        <a href="{{ url_for('main.settings') }}#site-{{ site.id }}" class="btn btn-primary">Edit</a>
+        <button type="button" class="btn btn-ghost js-close-site-modal">Cancel</button>
+      </footer>
+    </article>
+  </dialog>
+  {% endfor %}
+</section>
+{% else %}
+<section class="empty-state">
+  <h2>No sites configured yet</h2>
+  <p>Add your first site from the settings page.</p>
+  <a href="{{ url_for('main.settings') }}" class="btn btn-primary">Open settings</a>
+</section>
+{% endif %}
+{% endblock %}

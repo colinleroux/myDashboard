@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Site settings</h1>
+  <p>Add internal services and control how they appear on your landing page tiles.</p>
+
+  <form method="post" action="{{ url_for('main.create_site') }}" class="settings-form" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input name="name" required placeholder="Display name (e.g. Grafana)">
+    <input name="host" required placeholder="Address or hostname (e.g. 192.168.1.12 or grafana.local)">
+    <input name="port" type="number" min="1" max="65535" placeholder="Port (optional)">
+    <select name="scheme">
+      <option value="http">http</option>
+      <option value="https">https</option>
+    </select>
+    <input name="db_path" placeholder="DB file path for this site (optional)">
+    <label class="checkbox-row"><input name="db_only" type="checkbox"> DB only backup (skip asset folders)</label>
+    <input name="image_url" placeholder="Image URL (optional)">
+    <input name="image_file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg">
+    <input name="github_url" placeholder="GitHub repo URL (optional)">
+    <div class="asset-paths-group js-asset-paths-group">
+      <p>Asset paths to include in backup (optional):</p>
+      <div class="asset-paths-list">
+        <div class="asset-path-row">
+          <input name="asset_paths" placeholder="Asset path (e.g. /srv/site/uploads)">
+          <button type="button" class="btn btn-ghost js-remove-asset-path">Remove</button>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost js-add-asset-path">Add asset path</button>
+    </div>
+    <textarea name="description" rows="2" placeholder="Short description (optional)"></textarea>
+    <textarea name="notes" rows="3" placeholder="Notes (optional)"></textarea>
+    <button type="submit" class="btn btn-primary">Add site</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Configured sites</h2>
+  {% if sites %}
+  <div class="site-list">
+    {% for site in sites %}
+    <article class="site-row" id="site-{{ site.id }}">
+      {% set current_paths = site.get_asset_paths() %}
+      <form id="site-edit-{{ site.id }}" method="post" action="{{ url_for('main.update_site', site_id=site.id) }}" class="site-edit-form" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input name="name" value="{{ site.name }}" required>
+        <input name="host" value="{{ site.host }}" required>
+        <input name="port" type="number" min="1" max="65535" value="{{ site.port or '' }}">
+        <select name="scheme">
+          <option value="http" {% if site.scheme == "http" %}selected{% endif %}>http</option>
+          <option value="https" {% if site.scheme == "https" %}selected{% endif %}>https</option>
+        </select>
+        <input name="db_path" value="{{ site.db_path or '' }}" placeholder="DB file path">
+        <label class="checkbox-row"><input name="db_only" type="checkbox" {% if site.db_only %}checked{% endif %}> DB only backup</label>
+        <input name="image_url" value="{{ site.image_url or '' }}" placeholder="Image URL">
+        <input name="image_file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg">
+        <input name="github_url" value="{{ site.github_url or '' }}" placeholder="GitHub URL">
+        <div class="asset-paths-group js-asset-paths-group">
+          <p>Asset paths:</p>
+          <div class="asset-paths-list">
+            {% if current_paths %}
+              {% for path in current_paths %}
+              <div class="asset-path-row">
+                <input name="asset_paths" value="{{ path }}" placeholder="Asset path">
+                <button type="button" class="btn btn-ghost js-remove-asset-path">Remove</button>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="asset-path-row">
+                <input name="asset_paths" placeholder="Asset path">
+                <button type="button" class="btn btn-ghost js-remove-asset-path">Remove</button>
+              </div>
+            {% endif %}
+          </div>
+          <button type="button" class="btn btn-ghost js-add-asset-path">Add asset path</button>
+        </div>
+        <textarea name="description" rows="2" placeholder="Description">{{ site.description or '' }}</textarea>
+        <textarea name="notes" rows="3" placeholder="Notes">{{ site.notes or '' }}</textarea>
+      </form>
+      <div class="site-row-footer">
+        <button type="submit" form="site-edit-{{ site.id }}" class="btn btn-secondary">Save</button>
+        <form method="post" action="{{ url_for('main.delete_site', site_id=site.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>No sites configured yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
