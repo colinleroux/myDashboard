@@ -2,6 +2,17 @@
 {% block title %}Settings{% endblock %}
 {% block content %}
 <section class="panel">
+  <h1>Application settings</h1>
+  <p>Set global paths used by dashboard actions.</p>
+  <form method="post" action="{{ url_for('main.update_app_settings') }}" class="settings-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input name="backup_all_script_path" value="{{ backup_all_script_path }}" placeholder="Backup all script path (e.g. /mnt/data/backup_scripts/backup_all.sh)">
+    <input name="logs_dir" value="{{ logs_dir }}" placeholder="Logs directory (e.g. /mnt/backup/logs)">
+    <button type="submit" class="btn btn-primary">Save app settings</button>
+  </form>
+</section>
+
+<section class="panel">
   <h1>Site settings</h1>
   <p>Add internal services and control how they appear on your landing page tiles.</p>
 
@@ -14,16 +25,16 @@
       <option value="http">http</option>
       <option value="https">https</option>
     </select>
-    <input name="db_path" placeholder="DB file path for this site (optional)">
-    <label class="checkbox-row"><input name="db_only" type="checkbox"> DB only backup (skip asset folders)</label>
+    <input name="backup_script_path" placeholder="Site backup script path (e.g. /mnt/data/backup_scripts/controlwebsite_backup.sh)">
+    <input name="backup_interval_days" type="number" min="1" max="365" value="7" placeholder="Backup freshness window in days">
     <input name="image_url" placeholder="Image URL (optional)">
     <input name="image_file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg">
     <input name="github_url" placeholder="GitHub repo URL (optional)">
     <div class="asset-paths-group js-asset-paths-group">
-      <p>Asset paths to include in backup (optional):</p>
+      <p>Asset paths (reference only):</p>
       <div class="asset-paths-list">
         <div class="asset-path-row">
-          <input name="asset_paths" placeholder="Asset path (e.g. /srv/site/uploads)">
+          <input name="asset_paths" placeholder="Asset path (e.g. /opt/apps/app-name or /mnt/data/apps/app-name)">
           <button type="button" class="btn btn-ghost js-remove-asset-path">Remove</button>
         </div>
       </div>
@@ -51,13 +62,13 @@
           <option value="http" {% if site.scheme == "http" %}selected{% endif %}>http</option>
           <option value="https" {% if site.scheme == "https" %}selected{% endif %}>https</option>
         </select>
-        <input name="db_path" value="{{ site.db_path or '' }}" placeholder="DB file path">
-        <label class="checkbox-row"><input name="db_only" type="checkbox" {% if site.db_only %}checked{% endif %}> DB only backup</label>
+        <input name="backup_script_path" value="{{ site.backup_script_path or '' }}" placeholder="Site backup script path">
+        <input name="backup_interval_days" type="number" min="1" max="365" value="{{ site.backup_interval_days or 7 }}" placeholder="Backup freshness window in days">
         <input name="image_url" value="{{ site.image_url or '' }}" placeholder="Image URL">
         <input name="image_file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg">
         <input name="github_url" value="{{ site.github_url or '' }}" placeholder="GitHub URL">
         <div class="asset-paths-group js-asset-paths-group">
-          <p>Asset paths:</p>
+          <p>Asset paths (reference only):</p>
           <div class="asset-paths-list">
             {% if current_paths %}
               {% for path in current_paths %}

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from .extensions import db
 
 
@@ -13,8 +15,9 @@ class Site(db.Model):
     github_url = db.Column(db.String(600), nullable=True)
     assets_path = db.Column(db.String(600), nullable=True)
     asset_paths = db.Column(db.Text, nullable=True)
-    db_path = db.Column(db.String(600), nullable=True)
-    db_only = db.Column(db.Boolean, default=False, nullable=False)
+    backup_script_path = db.Column(db.String(600), nullable=True)
+    backup_interval_days = db.Column(db.Integer, nullable=False, default=7)
+    last_backup_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
 
     def destination_url(self) -> str:
@@ -42,3 +45,21 @@ class Site(db.Model):
             if candidate and candidate not in cleaned:
                 cleaned.append(candidate)
         return cleaned
+
+    def is_backup_fresh(self) -> bool:
+        if self.last_backup_at is None:
+            return False
+        interval_days = self.backup_interval_days or 7
+        now = datetime.now(timezone.utc)
+        last_backup = self.last_backup_at
+        if last_backup.tzinfo is None:
+            last_backup = last_backup.replace(tzinfo=timezone.utc)
+        age = now - last_backup
+        return age.days <= max(1, interval_days)
+
+
+class AppSetting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(80), nullable=False, unique=True)
+    value = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now(), nullable=False)

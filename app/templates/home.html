@@ -15,7 +15,8 @@
 {% if sites %}
 <section class="tile-grid">
   {% for site in sites %}
-  <article class="site-tile">
+  {% set is_fresh = site.is_backup_fresh() %}
+  <article class="site-tile {% if is_fresh %}site-tile-fresh{% else %}site-tile-stale{% endif %}">
     <a class="tile-click" href="{{ site.destination_url() }}" target="_blank" rel="noreferrer noopener">
       {% if site.image_url %}
       <img src="{{ site.image_url }}" alt="{{ site.name }} logo" class="tile-image">
@@ -26,6 +27,13 @@
         <h2>{{ site.name }}</h2>
         <p>{{ site.description or "No description provided yet." }}</p>
         <p class="tile-url">{{ site.destination_url() }}</p>
+        <p class="tile-status">
+          {% if site.last_backup_at %}
+            Last backup: {{ site.last_backup_at.strftime('%Y-%m-%d %H:%M') }}
+          {% else %}
+            No backup recorded yet
+          {% endif %}
+        </p>
       </div>
     </a>
     <div class="tile-actions">
@@ -51,8 +59,15 @@
         <p><strong>Address:</strong> {{ site.destination_url() }}</p>
         <p><strong>Description:</strong> {{ site.description or "N/A" }}</p>
         <p><strong>Notes:</strong> {{ site.notes or "N/A" }}</p>
-        <p><strong>DB path:</strong> {{ site.db_path or "N/A" }}</p>
-        <p><strong>DB only backup:</strong> {% if site.db_only %}Yes{% else %}No{% endif %}</p>
+        <p><strong>Backup script path:</strong> {{ site.backup_script_path or "N/A" }}</p>
+        <p><strong>Backup freshness window:</strong> {{ site.backup_interval_days or 7 }} day(s)</p>
+        <p><strong>Last backup:</strong>
+          {% if site.last_backup_at %}
+            {{ site.last_backup_at.strftime('%Y-%m-%d %H:%M:%S') }}
+          {% else %}
+            Never
+          {% endif %}
+        </p>
         <p><strong>GitHub:</strong>
           {% if site.github_url %}
           <a href="{{ site.github_url }}" target="_blank" rel="noreferrer noopener">{{ site.github_url }}</a>

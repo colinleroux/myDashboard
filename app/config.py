@@ -12,10 +12,9 @@ class Config:
         f"sqlite:///{INSTANCE_DB.as_posix()}",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    BACKUP_ROOT = os.environ.get(
-        "BACKUP_ROOT",
-        str((BASE_DIR / "instance" / "backups").resolve()),
-    )
+    BACKUP_ALL_SCRIPT_PATH = os.environ.get("BACKUP_ALL_SCRIPT_PATH", "")
+    LOGS_DIR = os.environ.get("LOGS_DIR", "/mnt/backup/logs")
+    SCRIPT_TIMEOUT_SECONDS = int(os.environ.get("SCRIPT_TIMEOUT_SECONDS", "3600"))
     SITE_IMAGES_DIR = os.environ.get(
         "SITE_IMAGES_DIR",
         str((BASE_DIR / "instance" / "site_images").resolve()),

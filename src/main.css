@@ -139,6 +139,16 @@
     box-shadow: 0 15px 30px rgba(22, 39, 53, 0.08);
   }
 
+  .site-tile-fresh {
+    border-color: #86cfa9;
+    background: linear-gradient(180deg, #f7fffa 0%, #effaf3 100%);
+  }
+
+  .site-tile-stale {
+    border-color: #e4c28f;
+    background: linear-gradient(180deg, #fff9ef 0%, #fff4de 100%);
+  }
+
   .tile-click {
     @apply flex h-full flex-col no-underline;
     color: inherit;
@@ -170,6 +180,10 @@
   .tile-url {
     @apply mt-auto text-xs font-medium;
     color: #1f6f95;
+  }
+
+  .tile-status {
+    @apply text-xs font-medium;
   }
 
   .tile-actions {
@@ -359,6 +373,13 @@
   .site-modal-actions {
     @apply flex items-center justify-end gap-2 border-t py-4;
     border-color: #e4ebf0;
+  }
+
+  .log-content {
+    @apply overflow-auto rounded-xl border p-4 text-xs;
+    border-color: #dbe4ea;
+    background: #f9fcfe;
+    max-height: 70vh;
   }
 }
 

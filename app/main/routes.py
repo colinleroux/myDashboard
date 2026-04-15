@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-import shutil
+import subprocess
 from typing import Optional
 from uuid import uuid4
 
@@ -8,11 +8,13 @@ from flask import Blueprint, current_app, flash, redirect, render_template, requ
 from werkzeug.utils import secure_filename
 
 from ..extensions import db
-from ..models import Site
+from ..models import AppSetting, Site
 
 main_bp = Blueprint("main", __name__)
 
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "svg"}
+SETTING_BACKUP_ALL_SCRIPT_PATH = "backup_all_script_path"
+SETTING_LOGS_DIR = "logs_dir"
 
 
 def _normalize_port(raw_port: str):
@@ -26,69 +28,6 @@ def _normalize_port(raw_port: str):
     if port < 1 or port > 65535:
         return None
     return port
-
-
-def _sqlite_db_file() -> Optional[Path]:
-    db_uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
-    if not db_uri.startswith("sqlite:///"):
-        return None
-    return Path(db_uri.replace("sqlite:///", "", 1)).resolve()
-
-
-def _ensure_backup_dir(prefix: str) -> Path:
-    backup_root = Path(current_app.config["BACKUP_ROOT"]).resolve()
-    backup_root.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    destination = backup_root / f"{stamp}-{prefix}"
-    destination.mkdir(parents=True, exist_ok=True)
-    return destination
-
-
-def _copy_site_assets(site: Site, destination: Path):
-    for path_value in site.get_asset_paths():
-        source = Path(path_value).expanduser().resolve()
-        if not source.exists():
-            flash(f"Assets path for '{site.name}' does not exist: {source}", "warning")
-            continue
-
-        if source.is_file():
-            shutil.copy2(source, destination / source.name)
-            continue
-
-        shutil.copytree(source, destination / source.name, dirs_exist_ok=True)
-
-
-def _copy_database(destination: Path):
-    db_path = _sqlite_db_file()
-    if db_path is None:
-        flash("Database backup supports SQLite URIs only in this version.", "warning")
-        return
-    if not db_path.exists():
-        flash(f"Database file not found: {db_path}", "warning")
-        return
-    shutil.copy2(db_path, destination / db_path.name)
-
-
-def _copy_site_database(site: Site, destination: Path):
-    if not site.db_path:
-        return
-
-    db_path = Path(site.db_path).expanduser().resolve()
-    if not db_path.exists():
-        flash(f"Database path for '{site.name}' does not exist: {db_path}", "warning")
-        return
-
-    if db_path.is_dir():
-        flash(f"Database path for '{site.name}' must be a file: {db_path}", "warning")
-        return
-
-    shutil.copy2(db_path, destination / db_path.name)
-
-
-def _copy_managed_images(destination: Path):
-    source = Path(current_app.config["SITE_IMAGES_DIR"]).resolve()
-    if source.exists():
-        shutil.copytree(source, destination / source.name, dirs_exist_ok=True)
 
 
 def _image_extension(filename: str) -> Optional[str]:
@@ -129,6 +68,72 @@ def _form_asset_paths() -> list[str]:
     return cleaned
 
 
+def _form_backup_interval_days() -> Optional[int]:
+    raw_value = (request.form.get("backup_interval_days") or "").strip()
+    if not raw_value:
+        return 7
+    try:
+        value = int(raw_value)
+    except ValueError:
+        return None
+    if value < 1 or value > 365:
+        return None
+    return value
+
+
+def _get_setting(key: str, default: str = "") -> str:
+    setting = AppSetting.query.filter_by(key=key).first()
+    if setting is None or setting.value is None:
+        return default
+    return setting.value
+
+
+def _set_setting(key: str, value: str):
+    setting = AppSetting.query.filter_by(key=key).first()
+    if setting is None:
+        setting = AppSetting(key=key, value=value)
+        db.session.add(setting)
+    else:
+        setting.value = value
+
+
+def _logs_dir_path() -> Path:
+    configured = (_get_setting(SETTING_LOGS_DIR, current_app.config.get("LOGS_DIR", "")) or "").strip()
+    if not configured:
+        configured = (current_app.config.get("LOGS_DIR") or "").strip() or "."
+    return Path(configured).expanduser()
+
+
+def _run_script(script_path: str, label: str) -> bool:
+    cleaned = (script_path or "").strip()
+    if not cleaned:
+        flash(f"{label} script path is not configured.", "error")
+        return False
+
+    script = Path(cleaned).expanduser()
+    if not script.exists():
+        flash(f"{label} script not found: {script}", "error")
+        return False
+
+    command = ["bash", str(script)] if script.suffix == ".sh" else [str(script)]
+    timeout_seconds = int(current_app.config.get("SCRIPT_TIMEOUT_SECONDS", 3600))
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout_seconds, check=False)
+    except Exception as exc:
+        flash(f"{label} script failed to start: {exc}", "error")
+        return False
+
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout or "").strip()
+        summary = details[-300:] if details else "No error output."
+        flash(f"{label} script failed (exit {result.returncode}). {summary}", "error")
+        return False
+
+    flash(f"{label} completed successfully.", "success")
+    return True
+
+
 @main_bp.route("/")
 def home():
     sites = Site.query.order_by(Site.name.asc()).all()
@@ -144,7 +149,30 @@ def site_image(filename: str):
 @main_bp.route("/settings")
 def settings():
     sites = Site.query.order_by(Site.name.asc()).all()
-    return render_template("settings.html", sites=sites)
+    backup_all_script_path = _get_setting(
+        SETTING_BACKUP_ALL_SCRIPT_PATH,
+        current_app.config.get("BACKUP_ALL_SCRIPT_PATH", ""),
+    )
+    logs_dir = _get_setting(SETTING_LOGS_DIR, current_app.config.get("LOGS_DIR", ""))
+    return render_template(
+        "settings.html",
+        sites=sites,
+        backup_all_script_path=backup_all_script_path,
+        logs_dir=logs_dir,
+    )
+
+
+@main_bp.route("/settings/app", methods=["POST"])
+def update_app_settings():
+    backup_all_script_path = (request.form.get("backup_all_script_path") or "").strip()
+    logs_dir = (request.form.get("logs_dir") or "").strip()
+
+    _set_setting(SETTING_BACKUP_ALL_SCRIPT_PATH, backup_all_script_path)
+    _set_setting(SETTING_LOGS_DIR, logs_dir)
+    db.session.commit()
+
+    flash("Application settings updated.", "success")
+    return redirect(url_for("main.settings"))
 
 
 @main_bp.route("/sites/create", methods=["POST"])
@@ -156,8 +184,8 @@ def create_site():
     scheme = request.form.get("scheme", "http").strip().lower()
     image_url = request.form.get("image_url", "").strip()
     github_url = request.form.get("github_url", "").strip()
-    db_path = request.form.get("db_path", "").strip()
-    db_only = request.form.get("db_only") == "on"
+    backup_script_path = request.form.get("backup_script_path", "").strip()
+    backup_interval_days = _form_backup_interval_days()
     asset_paths = _form_asset_paths()
     port = _normalize_port(request.form.get("port", ""))
 
@@ -171,6 +199,10 @@ def create_site():
 
     if request.form.get("port", "").strip() and port is None:
         flash("Port must be between 1 and 65535.", "error")
+        return redirect(url_for("main.settings"))
+
+    if backup_interval_days is None:
+        flash("Backup freshness window must be between 1 and 365 days.", "error")
         return redirect(url_for("main.settings"))
 
     uploaded_image_url = _save_uploaded_image()
@@ -188,8 +220,8 @@ def create_site():
         github_url=github_url or None,
         assets_path=asset_paths[0] if asset_paths else None,
         asset_paths="\n".join(asset_paths) if asset_paths else None,
-        db_path=db_path or None,
-        db_only=db_only,
+        backup_script_path=backup_script_path or None,
+        backup_interval_days=backup_interval_days,
     )
     db.session.add(site)
     db.session.commit()
@@ -212,8 +244,8 @@ def update_site(site_id: int):
     scheme = request.form.get("scheme", "http").strip().lower()
     image_url = request.form.get("image_url", "").strip()
     github_url = request.form.get("github_url", "").strip()
-    db_path = request.form.get("db_path", "").strip()
-    db_only = request.form.get("db_only") == "on"
+    backup_script_path = request.form.get("backup_script_path", "").strip()
+    backup_interval_days = _form_backup_interval_days()
     asset_paths = _form_asset_paths()
     raw_port = request.form.get("port", "")
     port = _normalize_port(raw_port)
@@ -230,6 +262,10 @@ def update_site(site_id: int):
         flash("Port must be between 1 and 65535.", "error")
         return redirect(url_for("main.settings"))
 
+    if backup_interval_days is None:
+        flash("Backup freshness window must be between 1 and 365 days.", "error")
+        return redirect(url_for("main.settings"))
+
     uploaded_image_url = _save_uploaded_image()
     if request.files.get("image_file") and uploaded_image_url is None:
         return redirect(url_for("main.settings"))
@@ -244,8 +280,8 @@ def update_site(site_id: int):
     site.github_url = github_url or None
     site.assets_path = asset_paths[0] if asset_paths else None
     site.asset_paths = "\n".join(asset_paths) if asset_paths else None
-    site.db_path = db_path or None
-    site.db_only = db_only
+    site.backup_script_path = backup_script_path or None
+    site.backup_interval_days = backup_interval_days
     db.session.commit()
 
     flash(f"Updated site '{site.name}'.", "success")
@@ -273,34 +309,63 @@ def backup_site(site_id: int):
         flash("Site not found.", "error")
         return redirect(url_for("main.home"))
 
-    destination = _ensure_backup_dir(f"site-{site_id}")
-    _copy_database(destination)
-    _copy_managed_images(destination)
-    _copy_site_database(site, destination)
-    if not site.db_only:
-        _copy_site_assets(site, destination)
-
-    flash(f"Backup finished for '{site.name}' at {destination}.", "success")
+    success = _run_script(site.backup_script_path or "", site.name)
+    if success:
+        site.last_backup_at = datetime.now(timezone.utc)
+        db.session.commit()
     return redirect(url_for("main.home"))
 
 
 @main_bp.route("/backup-all", methods=["POST"])
 def backup_all():
-    sites = Site.query.order_by(Site.id.asc()).all()
-    destination = _ensure_backup_dir("all-sites")
-    _copy_database(destination)
-    _copy_managed_images(destination)
-    for site in sites:
-        site_dir = destination / f"site-{site.id}-{site.name.replace(' ', '-').lower()}"
-        site_dir.mkdir(parents=True, exist_ok=True)
-        _copy_site_database(site, site_dir)
-        if not site.db_only:
-            _copy_site_assets(site, site_dir)
-
-    flash(f"Backup all finished at {destination}.", "success")
+    backup_all_script_path = _get_setting(
+        SETTING_BACKUP_ALL_SCRIPT_PATH,
+        current_app.config.get("BACKUP_ALL_SCRIPT_PATH", ""),
+    )
+    success = _run_script(backup_all_script_path, "Backup all")
+    if success:
+        now = datetime.now(timezone.utc)
+        for site in Site.query.all():
+            site.last_backup_at = now
+        db.session.commit()
     return redirect(url_for("main.home"))
 
 
-@main_bp.route("/scripts")
-def scripts():
-    return render_template("scripts.html")
+@main_bp.route("/logs")
+def logs():
+    logs_dir = _logs_dir_path()
+    log_files: list[dict] = []
+
+    if logs_dir.exists() and logs_dir.is_dir():
+        for path in logs_dir.iterdir():
+            if not path.is_file():
+                continue
+            stats = path.stat()
+            log_files.append(
+                {
+                    "name": path.name,
+                    "size": stats.st_size,
+                    "modified_at": datetime.fromtimestamp(stats.st_mtime),
+                }
+            )
+        log_files.sort(key=lambda item: item["modified_at"], reverse=True)
+    else:
+        flash(f"Logs directory not found: {logs_dir}", "warning")
+
+    return render_template("logs.html", log_files=log_files, logs_dir=str(logs_dir))
+
+
+@main_bp.route("/logs/<path:filename>")
+def log_file(filename: str):
+    logs_dir = _logs_dir_path()
+    logs_dir_resolved = logs_dir.resolve()
+    file_path = (logs_dir_resolved / filename).resolve()
+    if logs_dir_resolved != file_path and logs_dir_resolved not in file_path.parents:
+        flash("Invalid log file path.", "error")
+        return redirect(url_for("main.logs"))
+    if not file_path.exists() or not file_path.is_file():
+        flash("Log file not found.", "error")
+        return redirect(url_for("main.logs"))
+
+    content = file_path.read_text(encoding="utf-8", errors="replace")
+    return render_template("log_detail.html", filename=filename, content=content)

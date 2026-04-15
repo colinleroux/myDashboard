@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block title %}Logs{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Logs</h1>
+  <p>Directory: {{ logs_dir }}</p>
+  {% if log_files %}
+  <div class="site-list">
+    {% for file in log_files %}
+    <article class="site-row">
+      <p><strong>{{ file.name }}</strong></p>
+      <p>Modified: {{ file.modified_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+      <p>Size: {{ file.size }} bytes</p>
+      <a class="btn btn-ghost" href="{{ url_for('main.log_file', filename=file.name) }}">Open log</a>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>No log files found.</p>
+  {% endif %}
+</section>
+{% endblock %}
