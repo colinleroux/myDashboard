@@ -101,7 +101,51 @@ def _logs_dir_path() -> Path:
     configured = (_get_setting(SETTING_LOGS_DIR, current_app.config.get("LOGS_DIR", "")) or "").strip()
     if not configured:
         configured = (current_app.config.get("LOGS_DIR") or "").strip() or "."
-    return Path(configured).expanduser()
+    preferred = Path(configured).expanduser()
+    if preferred.exists():
+        return preferred
+
+    fallbacks = [
+        Path("/mnt/backup/logs"),
+        Path("/mnt/data/backup/logs"),
+    ]
+    for fallback in fallbacks:
+        if fallback.exists():
+            return fallback
+    return preferred
+
+
+def _resolve_script_path(script_path: str) -> tuple[Optional[Path], list[Path]]:
+    raw = (script_path or "").strip()
+    if not raw:
+        return None, []
+
+    candidate = Path(raw).expanduser()
+    tried: list[Path] = [candidate]
+    if candidate.exists():
+        return candidate, tried
+
+    text_candidate = str(candidate)
+    if text_candidate.startswith("/mnt/backup/backup_scripts/"):
+        translated = Path(text_candidate.replace("/mnt/backup/backup_scripts/", "/mnt/data/backup_scripts/", 1))
+        tried.append(translated)
+        if translated.exists():
+            return translated, tried
+
+    if text_candidate.startswith("/mnt/data/backup_scripts/"):
+        translated = Path(text_candidate.replace("/mnt/data/backup_scripts/", "/mnt/backup/backup_scripts/", 1))
+        tried.append(translated)
+        if translated.exists():
+            return translated, tried
+
+    if "/" not in raw and "\\" not in raw:
+        for base in (Path("/mnt/data/backup_scripts"), Path("/mnt/backup/backup_scripts")):
+            translated = base / raw
+            tried.append(translated)
+            if translated.exists():
+                return translated, tried
+
+    return None, tried
 
 
 def _run_script(script_path: str, label: str) -> bool:
@@ -110,9 +154,10 @@ def _run_script(script_path: str, label: str) -> bool:
         flash(f"{label} script path is not configured.", "error")
         return False
 
-    script = Path(cleaned).expanduser()
-    if not script.exists():
-        flash(f"{label} script not found: {script}", "error")
+    script, tried_paths = _resolve_script_path(cleaned)
+    if script is None:
+        tried = ", ".join(str(path) for path in tried_paths) if tried_paths else cleaned
+        flash(f"{label} script not found. Tried: {tried}", "error")
         return False
 
     command = ["bash", str(script)] if script.suffix == ".sh" else [str(script)]

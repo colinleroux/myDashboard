@@ -14,6 +14,7 @@ services:
     volumes:
       - /mnt/data/apps/ControlWebsite/instance:/app/instance
       - /mnt/data/backup_scripts:/mnt/data/backup_scripts:ro
+      - /mnt/backup/backup_scripts:/mnt/backup/backup_scripts:ro
       - /mnt/backup/logs:/mnt/backup/logs
     command: >
       sh -c "flask --app wsgi_app.py init-db &&
