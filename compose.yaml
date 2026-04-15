@@ -13,6 +13,8 @@ services:
       - "8000"
     volumes:
       - /mnt/data/apps/ControlWebsite/instance:/app/instance
+      - /mnt/data/backup_scripts:/mnt/data/backup_scripts:ro
+      - /mnt/backup/logs:/mnt/backup/logs
     command: >
       sh -c "flask --app wsgi_app.py init-db &&
              gunicorn --bind 0.0.0.0:8000 --workers 2 --threads 4 --timeout 60 wsgi_app:application"
