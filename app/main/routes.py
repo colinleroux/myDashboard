@@ -179,6 +179,13 @@ def _run_script(script_path: str, label: str) -> bool:
     return True
 
 
+def _is_manual_backup_site(site: Site) -> bool:
+    # Keep Immich manual: excluded from Backup All status updates.
+    script_path = (site.backup_script_path or "").lower()
+    site_name = (site.name or "").lower()
+    return "immich" in site_name or "immich" in script_path
+
+
 @main_bp.route("/")
 def home():
     sites = Site.query.order_by(Site.name.asc()).all()
@@ -371,8 +378,11 @@ def backup_all():
     if success:
         now = datetime.now(timezone.utc)
         for site in Site.query.all():
+            if _is_manual_backup_site(site):
+                continue
             site.last_backup_at = now
         db.session.commit()
+        flash("Immich is excluded from Backup all status updates and remains manual.", "info")
     return redirect(url_for("main.home"))
 
 

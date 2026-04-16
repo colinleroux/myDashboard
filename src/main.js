@@ -4,6 +4,37 @@ import "./main.css";
 window.Alpine = Alpine;
 Alpine.start();
 
+const html = document.documentElement;
+const themeToggle = document.querySelector(".js-theme-toggle");
+
+const applyTheme = (theme) => {
+  html.setAttribute("data-theme", theme);
+  localStorage.setItem("theme", theme);
+  if (themeToggle) {
+    themeToggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+  }
+};
+
+const initializeTheme = () => {
+  const saved = localStorage.getItem("theme");
+  if (saved === "dark" || saved === "light") {
+    applyTheme(saved);
+    return;
+  }
+
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(prefersDark ? "dark" : "light");
+};
+
+initializeTheme();
+
+if (themeToggle) {
+  themeToggle.addEventListener("click", () => {
+    const current = html.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    applyTheme(current === "dark" ? "light" : "dark");
+  });
+}
+
 const closeDialog = (dialog) => {
   if (!dialog) return;
   dialog.close();

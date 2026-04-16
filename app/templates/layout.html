@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}Site Launcher{% endblock %}</title>
+  <script>
+    (function () {
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark" || savedTheme === "light") {
+        document.documentElement.setAttribute("data-theme", savedTheme);
+      }
+    })();
+  </script>
   {% for css_url in asset_css_urls('src/main.js') %}
   <link rel="stylesheet" href="{{ css_url }}">
   {% endfor %}
@@ -19,6 +27,7 @@
         <a href="{{ url_for('main.settings') }}">Settings</a>
         <a href="{{ url_for('main.logs') }}">Logs</a>
         <a href="/api/health">API Health</a>
+        <button type="button" class="btn btn-ghost btn-theme js-theme-toggle" aria-label="Toggle theme">Dark mode</button>
       </div>
     </div>
   </nav>
