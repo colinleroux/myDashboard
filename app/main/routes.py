@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 import subprocess
 from typing import Optional
 from uuid import uuid4
@@ -15,6 +16,26 @@ main_bp = Blueprint("main", __name__)
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "svg"}
 SETTING_BACKUP_ALL_SCRIPT_PATH = "backup_all_script_path"
 SETTING_LOGS_DIR = "logs_dir"
+SUCCESS_PATTERNS = (
+    "backup completed successfully",
+    "backup complete",
+    "backup completed",
+    "backup finished",
+    "completed successfully",
+    "successfully completed",
+    "backup successful",
+    "exit code: 0",
+    "exit status: 0",
+)
+FAILURE_PATTERNS = (
+    "backup failed",
+    " failed",
+    " error",
+    " exception",
+    " traceback",
+    "exit code: 1",
+    "exit status: 1",
+)
 
 
 def _normalize_port(raw_port: str):
@@ -186,9 +207,117 @@ def _is_manual_backup_site(site: Site) -> bool:
     return "immich" in site_name or "immich" in script_path
 
 
+def _site_log_tokens(site: Site) -> list[str]:
+    tokens: list[str] = []
+    values = [
+        (site.name or "").strip().lower(),
+        (site.host or "").strip().lower(),
+        Path(site.backup_script_path).name.lower() if site.backup_script_path else "",
+        Path(site.backup_script_path).stem.lower() if site.backup_script_path else "",
+    ]
+
+    for value in values:
+        if not value:
+            continue
+        cleaned = re.sub(r"[^a-z0-9]+", "", value)
+        for candidate in (value, cleaned):
+            if len(candidate) < 3:
+                continue
+            if candidate not in tokens:
+                tokens.append(candidate)
+
+    return tokens
+
+
+def _log_mentions_site(log_path: Path, tokens: list[str]) -> bool:
+    log_name = log_path.name.lower()
+    compact_name = re.sub(r"[^a-z0-9]+", "", log_name)
+    for token in tokens:
+        if token in log_name or token in compact_name:
+            return True
+
+    try:
+        content = log_path.read_text(encoding="utf-8", errors="replace").lower()
+    except OSError:
+        return False
+
+    compact_content = re.sub(r"[^a-z0-9]+", "", content)
+    for token in tokens:
+        if token in content or token in compact_content:
+            return True
+    return False
+
+
+def _log_has_success(log_path: Path) -> bool:
+    try:
+        content = log_path.read_text(encoding="utf-8", errors="replace").lower()
+    except OSError:
+        return False
+
+    if not content.strip():
+        return False
+
+    if not any(pattern in content for pattern in SUCCESS_PATTERNS):
+        return False
+
+    # Bias toward final state by evaluating only the log tail.
+    tail = content[-4000:]
+    if any(pattern in tail for pattern in FAILURE_PATTERNS):
+        return False
+    return True
+
+
+def _latest_successful_log_time_for_site(site: Site) -> Optional[datetime]:
+    logs_dir = _logs_dir_path()
+    if not logs_dir.exists() or not logs_dir.is_dir():
+        return None
+
+    tokens = _site_log_tokens(site)
+    if not tokens:
+        return None
+
+    latest: Optional[datetime] = None
+    for log_path in logs_dir.iterdir():
+        if not log_path.is_file():
+            continue
+        if not _log_mentions_site(log_path, tokens):
+            continue
+        if not _log_has_success(log_path):
+            continue
+
+        modified = datetime.fromtimestamp(log_path.stat().st_mtime, tz=timezone.utc)
+        if latest is None or modified > latest:
+            latest = modified
+    return latest
+
+
+def _to_utc_aware(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _sync_manual_backup_statuses_from_logs(sites: list[Site]) -> bool:
+    changed = False
+    for site in sites:
+        log_time = _latest_successful_log_time_for_site(site)
+        if log_time is None:
+            continue
+
+        current = _to_utc_aware(site.last_backup_at)
+        if current is None or log_time > current:
+            site.last_backup_at = log_time
+            changed = True
+    return changed
+
+
 @main_bp.route("/")
 def home():
     sites = Site.query.order_by(Site.name.asc()).all()
+    if _sync_manual_backup_statuses_from_logs(sites):
+        db.session.commit()
     return render_template("home.html", sites=sites)
 
 
